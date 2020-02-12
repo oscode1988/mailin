@@ -1,0 +1,81 @@
+version: "3"
+services:
+  mailin:
+    image:  oscode/mailin
+    container_name: mailin
+    environment:
+      WEBHOOK_URL: "http://dev.mail.com/mailin.php"
+    expose:
+      - 25
+    ports:
+      - "25:25"
+    extra_hosts:
+      - "dev.mail.com:172.23.0.1"
+    restart: always
+    networks:
+      extnetwork:
+        ipv4_address: 172.19.0.7
+  redis:
+    image: redis:5.0.3-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./services/redis/redis.conf:/etc/redis.conf:ro
+      - ./data/redis:/data/:rw
+    restart: always
+    entrypoint: ["redis-server", "/etc/redis.conf"]
+    environment:
+      TZ: "Asia/Shanghai"
+    networks:
+      extnetwork:
+        ipv4_address: 172.23.0.5
+  openresty:
+    image:  openresty/openresty:alpine
+    container_name: openresty
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../../:/www/:rw
+      - ./services/openresty/conf.d:/etc/nginx/conf.d/:ro
+      - ./services/openresty/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./services/openresty/lua:/lua:rw
+      - ./services/openresty/fastcgi-php.conf:/usr/local/openresty/nginx/conf/fastcgi-php.conf:ro
+      - ./services/openresty/fastcgi_params:/usr/local/openresty/nginx/conf/fastcgi_params:ro
+      - ./logs/nginx:/var/log/nginx/:rw
+    environment:
+      TZ: "Asia/Shanghai"
+    restart: always
+    networks:
+      extnetwork:
+        ipv4_address: 172.23.0.2
+
+  php:
+    image:  oscode/php
+    container_name: php
+    expose:
+      - 9000
+      - 9500
+    ports:
+      - "9500:9500"
+    volumes:
+      - ../../:/www/:rw
+      - ./services/php/php.ini:/usr/local/etc/php/php.ini:ro
+      - ./services/php/php-fpm.conf:/usr/local/etc/php-fpm.d/www.conf:rw
+      - ./logs/php:/var/log/php
+      - ./data/composer:/tmp/composer
+    restart: always
+    cap_add:
+      - SYS_PTRACE
+    networks:
+      extnetwork:
+        ipv4_address: 172.23.0.3
+networks:
+  extnetwork:
+    ipam:
+        config:
+          - 
+            subnet: 172.23.0.0/16
+
+
